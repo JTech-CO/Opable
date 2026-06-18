@@ -1,6 +1,6 @@
 # Opus 4.8 Plus
 
-[힌국어](https://github.com/JTech-CO/Opus-4.8-Plus/blob/main/README-KR.md)
+[힌국어](https://github.com/JTech-CO/Opus-4.8-Plus/blob/main/README.md)
 
 A **Response Elicitation Harness** for Claude Opus 4.8. A set of operating disciplines that pulls Opus 4.8's answers **as close to Fable 5 as possible** — not by changing or imitating the model, but by driving the reasoning behind the answer up to Opus's capability ceiling.
 
