@@ -27,8 +27,8 @@ Opable(구 *Opus 4.8 Plus*)은 Claude Opus 4.8용 지침 하네스입니다. 답
 
 1. **설치 (Install)**
    ```bash
-   git clone https://github.com/JTech-CO/Opus-4.8-Plus.git
-   cd Opus-4.8-Plus
+   git clone https://github.com/JTech-CO/Opable.git
+   cd Opable
    ```
 
 2. **도입 (Adopt)** — 배포면을 선택합니다
