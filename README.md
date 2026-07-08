@@ -61,4 +61,3 @@ Full background (ceiling vs. elicitation, design decisions) lives in each pack's
 
 - **License**: MIT
 - **Attribution**: [fable-skills](https://github.com/adamentwistle/fable-skills) (MIT, vendored unmodified); the Operating Manual is based on a codification of the leaked Fable 5's way of answering
-- **Contact**: [JTech-CO](https://github.com/JTech-CO) — issues and PRs welcome
