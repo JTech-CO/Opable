@@ -27,8 +27,8 @@ Opable (formerly *Opus 4.8 Plus*) is an instruction harness for Claude Opus 4.8.
 
 1. **Install**
    ```bash
-   git clone https://github.com/JTech-CO/Opus-4.8-Plus.git
-   cd Opus-4.8-Plus
+   git clone https://github.com/JTech-CO/Opable.git
+   cd Opable
    ```
 
 2. **Adopt** (pick your deployment)
