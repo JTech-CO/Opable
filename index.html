@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Opable — Response Elicitation Harness for Claude Opus 4.8</title>
+<meta name="description" content="Opable pulls Claude Opus 4.8's answers as close to Fable 5 as possible — by transplanting Fable's working method, not by changing the model.">
+<style>
+:root{
+  --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10);
+  --accent:#2a78d6; --accent-ink:#1c5cab;
+  --c-bare:#86b6ef; --c-skill:#256abf;           /* ordinal pair: without → with (validated) */
+  --c-opus:#2a78d6; --c-sonnet:#1baf7a;          /* categorical pair (validated) */
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --page:#0d0d0d; --surface:#1a1a19; --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
+    --accent:#3987e5; --accent-ink:#86b6ef;
+    --c-bare:#184f95; --c-skill:#3987e5;
+    --c-opus:#3987e5; --c-sonnet:#199e70;
+  }
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} *{transition:none!important} }
+body{
+  background:var(--page); color:var(--ink);
+  font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue","Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif;
+  font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased;
+}
+body.ko .en{display:none} body.en .ko{display:none}
+main{max-width:880px;margin:0 auto;padding:0 24px 96px}
+a{color:var(--accent-ink);text-decoration:none} a:hover{text-decoration:underline}
+code,pre{font-family:ui-monospace,"Cascadia Mono",Consolas,Menlo,monospace;font-size:.875em}
+pre{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 16px;overflow-x:auto;line-height:1.55}
+h1{font-size:32px;line-height:1.15;font-weight:700;letter-spacing:-.01em}
+h2{font-size:22px;line-height:1.25;font-weight:600;margin:0 0 4px}
+h3{font-size:16px;font-weight:600}
+section{margin-top:64px}
+.sec-kicker{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.lede{color:var(--ink-2);max-width:64ch}
+header.site{display:flex;align-items:baseline;justify-content:space-between;gap:16px;padding:28px 0 0;flex-wrap:wrap}
+.brand{font-weight:700;font-size:17px}
+.brand .x{color:var(--muted);font-weight:400}
+nav.top{display:flex;gap:16px;align-items:baseline;font-size:14px}
+.lang-sw{display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.lang-sw button{all:unset;cursor:pointer;font-size:12.5px;padding:3px 10px;color:var(--ink-2)}
+.lang-sw button[aria-pressed="true"]{background:var(--surface);color:var(--ink);font-weight:600}
+.hero{padding:64px 0 0}
+.hero p.sub{margin-top:16px;font-size:18px;color:var(--ink-2);max-width:60ch}
+.hero .meta{margin-top:20px;font-size:14px;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:720px){.grid-2{grid-template-columns:1fr}}
+.layers{display:flex;flex-direction:column;gap:8px;margin-top:20px}
+.layer{display:grid;grid-template-columns:112px 1fr;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;align-items:baseline}
+.layer .no{font-size:13px;font-weight:600;color:var(--accent-ink)}
+.layer p{font-size:14.5px;color:var(--ink-2)}
+.layer h3{margin-bottom:2px}
+.wrapnote{font-size:13px;color:var(--muted);margin-top:10px}
+.fig{margin-top:24px}
+.fig .card{padding:20px 20px 16px}
+.fig h3{font-size:15.5px}
+.fig .sub{font-size:13.5px;color:var(--muted);margin-top:2px}
+.legend{display:flex;gap:18px;margin:12px 0 4px;font-size:13px;color:var(--ink-2);flex-wrap:wrap}
+.legend .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:baseline}
+svg{display:block;width:100%;height:auto}
+svg text{font-family:inherit}
+.bar-hit{fill:transparent;cursor:default}
+.bar{transition:opacity .12s ease-out}
+.dim .bar{opacity:.55} .dim .bar.hot{opacity:1}
+.tip{position:fixed;z-index:10;pointer-events:none;background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;padding:8px 11px;font-size:13px;line-height:1.45;color:var(--ink);
+  box-shadow:0 2px 8px rgba(0,0,0,.08);max-width:260px;display:none}
+.tip b{font-variant-numeric:tabular-nums}
+table{width:100%;border-collapse:collapse;font-size:14px;margin-top:12px}
+th,td{text-align:right;padding:8px 10px;border-bottom:1px solid var(--grid);font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{text-align:left}
+thead th{font-size:12.5px;color:var(--muted);font-weight:600;border-bottom:1px solid var(--axis)}
+td.hl{font-weight:600}
+.note{border-left:2px solid var(--axis);padding:2px 0 2px 16px;margin-top:20px;font-size:14px;color:var(--ink-2)}
+.note ul{margin:6px 0 0 18px} .note li{margin-top:4px}
+ul.plain{margin:12px 0 0 18px} ul.plain li{margin-top:6px;color:var(--ink-2);font-size:15px}
+.adopt{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:20px}
+@media (max-width:720px){.adopt{grid-template-columns:1fr}}
+.adopt .card h3{margin-bottom:6px}
+.adopt .card p{font-size:14px;color:var(--ink-2)}
+footer{margin-top:96px;padding-top:20px;border-top:1px solid var(--grid);font-size:13.5px;color:var(--muted);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.caption{font-size:12.5px;color:var(--muted);margin-top:10px}
+</style>
+</head>
+<body class="ko">
+<main>
+  <header class="site">
+    <div class="brand">Opable <span class="x">= Opus × Fable</span></div>
+    <nav class="top">
+      <a href="#evidence"><span class="ko">근거</span><span class="en">Evidence</span></a>
+      <a href="#adopt"><span class="ko">도입</span><span class="en">Adopt</span></a>
+      <a href="https://github.com/JTech-CO/Opable">GitHub</a>
+      <span class="lang-sw" role="group" aria-label="Language">
+        <button id="btn-ko" aria-pressed="true">한국어</button>
+        <button id="btn-en" aria-pressed="false">EN</button>
+      </span>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <h1>
+      <span class="ko">Opus 4.8의 답을,<br>Fable 5에 최대한 가깝게.</span>
+      <span class="en">Opus 4.8's answers,<br>as close to Fable 5 as possible.</span>
+    </h1>
+    <p class="sub">
+      <span class="ko">Opable은 Claude Opus 4.8용 응답 발현 하네스입니다. 모델도, 출력 스타일도 바꾸지 않습니다 — Fable 5의 작업 방식(규율과 스킬)을 이식해 답 뒤의 추론만 능력 천장까지 끌어올립니다.</span>
+      <span class="en">Opable is a response-elicitation harness for Claude Opus 4.8. It changes neither the model nor the output style — it transplants Fable 5's working method (discipline and skills) to pull the reasoning behind each answer up to the capability ceiling.</span>
+    </p>
+    <p class="meta">
+      <span class="ko">순수 Markdown 지침 팩 · claude.ai Project / Claude Code / API · MIT</span>
+      <span class="en">Plain-Markdown instruction packs · claude.ai Project / Claude Code / API · MIT</span>
+    </p>
+  </div>
+
+  <section>
+    <div class="sec-kicker"><span class="ko">전제</span><span class="en">Premise</span></div>
+    <h2><span class="ko">천장이 아니라 발현을 끌어올린다</span><span class="en">It raises elicitation, not the ceiling</span></h2>
+    <p class="lede">
+      <span class="ko">모델의 능력 한계(천장)는 가중치가 정하며 프롬프트로는 올릴 수 없습니다. 그러나 그 천장 중 실제로 끌려 나오는 양(발현)은 추론의 구조와 깊이에 따라 크게 달라집니다. Opable은 이 두 번째 값을 최대화합니다.</span>
+      <span class="en">A model's capability limit (the ceiling) is set by its weights; no prompt can raise it. But how much of that ceiling actually comes out (elicitation) varies greatly with reasoning structure and depth. Opable maximizes that second quantity.</span>
+    </p>
+    <div class="fig">
+      <div class="card">
+        <h3><span class="ko">천장 vs 발현</span><span class="en">Ceiling vs. elicitation</span></h3>
+        <p class="sub"><span class="ko">개념도 — 실측 아님</span><span class="en">Illustrative — not measured</span></p>
+        <div id="fig-concept"></div>
+        <p class="caption">
+          <span class="ko">Opable은 Opus 4.8의 천장(점선) 안에서 발현을 끌어올립니다. Fable 5의 더 높은 천장·게이트된 능력은 어떤 설정으로도 복제되지 않습니다.</span>
+          <span class="en">Opable raises elicitation within Opus 4.8's ceiling (dashed line). Fable 5's higher ceiling and gated capabilities are not replicated under any configuration.</span>
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-kicker"><span class="ko">구조</span><span class="en">Architecture</span></div>
+    <h2><span class="ko">세 계층, 하나의 계약</span><span class="en">Three layers, one contract</span></h2>
+    <p class="lede">
+      <span class="ko"><code>CLAUDE.md</code>(자동 로드 계약)가 세 계층을 묶습니다. 모든 절차는 내부 사고 단계에서만 돌고, 사용자가 보는 것은 네이티브 스타일의 답 한 편뿐입니다.</span>
+      <span class="en"><code>CLAUDE.md</code> (the auto-loaded contract) binds three layers. Every procedure runs internally, in the reasoning step — the user sees a single, native-style answer.</span>
+    </p>
+    <div class="layers">
+      <div class="layer">
+        <span class="no"><span class="ko">계층 1</span><span class="en">Layer 1</span></span>
+        <div>
+          <h3><span class="ko">추론 루프</span><span class="en">Reasoning loop</span></h3>
+          <p><span class="ko">응답마다 내부 6단계: 프레이밍 → 분해 → 심층 추론 → 초안 → 그라운딩 → 발신 전 점검. (<code>phases/</code>, <code>EFFORT.md</code>)</span>
+          <span class="en">Six internal stages per response: frame → decompose → reason → draft → ground → pre-send check. (<code>phases/</code>, <code>EFFORT.md</code>)</span></p>
+        </div>
+      </div>
+      <div class="layer">
+        <span class="no"><span class="ko">계층 2</span><span class="en">Layer 2</span></span>
+        <div>
+          <h3><span class="ko">응답 규율</span><span class="en">Response discipline</span></h3>
+          <p><span class="ko">유출된 Fable 5의 답변 방식을 명문화한 Operating Manual 정본 + 불변식 10종 + 발신 전 6항목 점검. 통과 자료 재도출, 앎/추측 레지스터 분리, 자기 결론 반증이 여기서 강제됩니다.</span>
+          <span class="en">The Operating Manual — a codification of the leaked Fable 5's observed way of answering — plus 10 invariants and a six-point pre-send check. Re-derivation of pass-through material, known-vs-guessed registers, and self-attack on conclusions are enforced here.</span></p>
+        </div>
+      </div>
+      <div class="layer">
+        <span class="no"><span class="ko">계층 3</span><span class="en">Layer 3</span></span>
+        <div>
+          <h3><span class="ko">상황별 스킬</span><span class="en">Situational skills</span></h3>
+          <p><span class="ko">fable-skills 35종 — 디버깅, 보안, 동시성, 마이그레이션 등 과제 유형이 맞을 때만 발동하는 시니어 작업 습관. (<code>skills/</code>, MIT)</span>
+          <span class="en">The 35 fable-skills — senior working habits for debugging, security, concurrency, migrations and more, firing only when the task type matches. (<code>skills/</code>, MIT)</span></p>
+        </div>
+      </div>
+    </div>
+    <p class="wrapnote">
+      <span class="ko">계층 1·2는 모든 응답에 적용되고, 계층 3은 상황에 따라 켜집니다.</span>
+      <span class="en">Layers 1–2 apply to every response; Layer 3 switches on situationally.</span>
+    </p>
+  </section>
+
+  <section id="evidence">
+    <div class="sec-kicker"><span class="ko">근거</span><span class="en">Evidence</span></div>
+    <h2><span class="ko">얼마나 좋아지는가 — 측정된 것</span><span class="en">How much does it improve — what's measured</span></h2>
+    <p class="lede">
+      <span class="ko">아래 수치는 Opable의 계층 3(fable-skills)이 업스트림 저장소에서 블라인드 채점으로 측정된 결과입니다. 동일 과제를 스킬 없이/스킬과 함께 새 에이전트에 돌리고, 모델·조건을 모르는 독립 채점자가 고정 정답지로 채점했습니다.</span>
+      <span class="en">The numbers below measure Opable's Layer 3 (the fable-skills), blind-graded in the upstream repository: the same task run through fresh agents with and without the skill files, scored against a fixed answer key by an independent grader that knew neither the model nor the condition.</span>
+    </p>
+
+    <div class="fig">
+      <div class="card">
+        <h3><span class="ko">Opus 4.8 — 스킬 없이 vs 스킬과 함께</span><span class="en">Opus 4.8 — bare vs. with skills</span></h3>
+        <p class="sub"><span class="ko">심어 둔 결함 중 발견 비율(%) · 영역당 5회 평균 · 블라인드 채점</span><span class="en">% of seeded issues found · mean of 5 runs per area · blind-graded</span></p>
+        <div class="legend">
+          <span><span class="sw" style="background:var(--c-bare)"></span><span class="ko">스킬 없이</span><span class="en">Bare</span></span>
+          <span><span class="sw" style="background:var(--c-skill)"></span><span class="ko">스킬과 함께</span><span class="en">With skills</span></span>
+        </div>
+        <div id="fig-opus"></div>
+      </div>
+    </div>
+
+    <div class="grid-2 fig">
+      <div class="card">
+        <h3><span class="ko">보안 코드 리뷰 — 14개 결함 찾기</span><span class="en">Security review — find 14 seeded flaws</span></h3>
+        <p class="sub"><span class="ko">n=1 · 블라인드 채점 · Opus 4.8</span><span class="en">n=1 · blind-graded · Opus 4.8</span></p>
+        <div id="fig-sec"></div>
+        <p class="caption">
+          <span class="ko">스킬 적용 시에만 잡힌 것 중 하나가 IDOR(객체 수준 인가 누락) — 파일에서 가장 심각도 높은 단일 결함이었습니다.</span>
+          <span class="en">Among the issues caught only with skills was the IDOR / broken object-level authorization flaw — the single highest-severity issue in the file.</span>
+        </p>
+      </div>
+      <div class="card">
+        <h3><span class="ko">일관성 — 디버깅 5회 점수 분포</span><span class="en">Consistency — debugging scores over 5 runs</span></h3>
+        <p class="sub"><span class="ko">점수 범위와 평균 (/8) · Opus 4.8</span><span class="en">Score range and mean (/8) · Opus 4.8</span></p>
+        <div id="fig-var"></div>
+        <p class="caption">
+          <span class="ko">스킬 적용 시 점수가 상단에 모입니다 — 평균만이 아니라 분산이 줄어, 이득의 본질은 일관성입니다.</span>
+          <span class="en">With skills the scores cluster at the top — variance shrinks, not just the mean; the gain is consistency.</span>
+        </p>
+      </div>
+    </div>
+
+    <div class="fig">
+      <div class="card">
+        <h3><span class="ko">규율은 모델 격차를 닫는다 — Sonnet 5 + 스킬 vs Opus 4.8 단독</span><span class="en">Discipline closes the model gap — Sonnet 5 + skills vs. bare Opus 4.8</span></h3>
+        <p class="sub"><span class="ko">심어 둔 결함 중 발견 비율(%) · 영역당 5회 평균</span><span class="en">% of seeded issues found · mean of 5 runs per area</span></p>
+        <div class="legend">
+          <span><span class="sw" style="background:var(--c-opus)"></span><span class="ko">Opus 4.8, 스킬 없이</span><span class="en">Opus 4.8, bare</span></span>
+          <span><span class="sw" style="background:var(--c-sonnet)"></span><span class="ko">Sonnet 5 + 스킬</span><span class="en">Sonnet 5 + skills</span></span>
+        </div>
+        <div id="fig-parity"></div>
+        <p class="caption">
+          <span class="ko">더 가벼운 모델이 스킬만으로 상위 모델의 단독 성능을 전 영역에서 따라잡거나 앞섭니다. 같은 지렛대가 Opus 4.8 → Fable 5 방향에도 걸린다는 것이 Opable의 명제입니다 — 단, 천장 안에서. 가장 미묘한 통찰 하나(JSON null이 <code>is None</code> 가드를 뚫는 케이스)는 여전히 강한 모델에서만 나왔습니다(Opus+스킬 5회 중 4회, Sonnet 0회).</span>
+          <span class="en">The lighter model, given only the skills, matches or beats the stronger bare model in every area. Opable's thesis is that the same lever applies in the Opus 4.8 → Fable 5 direction — within the ceiling. The single subtlest insight (a JSON null defeating an <code>is None</code> guard) still required the stronger model: Opus+skills 4/5 runs, Sonnet 0/5.</span>
+        </p>
+      </div>
+    </div>
+
+    <div class="fig">
+      <div class="card">
+        <h3><span class="ko">전체 수치</span><span class="en">All numbers</span></h3>
+        <p class="sub"><span class="ko">평균 발견 결함 수(만점) · 영역당 5회 · 블라인드 채점</span><span class="en">Mean issues found (of max) · 5 runs per area · blind-graded</span></p>
+        <table>
+          <thead><tr>
+            <th><span class="ko">영역</span><span class="en">Area</span></th>
+            <th>Opus 4.8</th><th>Opus 4.8 <span class="ko">+ 스킬</span><span class="en">+ skills</span></th>
+            <th>Sonnet 5</th><th>Sonnet 5 <span class="ko">+ 스킬</span><span class="en">+ skills</span></th>
+          </tr></thead>
+          <tbody>
+            <tr><td><span class="ko">근본 원인 디버깅</span><span class="en">Root-cause debugging</span> (/8)</td><td>5.2 · 65%</td><td class="hl">7.8 · 98%</td><td>4.4 · 55%</td><td>6.4 · 80%</td></tr>
+            <tr><td><span class="ko">동시성</span><span class="en">Concurrency</span> (/7)</td><td>6.4 · 91%</td><td class="hl">7.0 · 100%</td><td>6.0 · 86%</td><td>7.0 · 100%</td></tr>
+            <tr><td><span class="ko">엣지 · 수치 처리</span><span class="en">Edge / numerical</span> (/9)</td><td>8.2 · 91%</td><td class="hl">9.0 · 100%</td><td>8.6 · 96%</td><td>9.0 · 100%</td></tr>
+            <tr><td><span class="ko">보안 리뷰</span><span class="en">Security review</span> (/14, n=1)</td><td>10</td><td class="hl">13</td><td>—</td><td>—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="note">
+      <strong><span class="ko">이 수치가 측정하는 것 — 정직하게</span><span class="en">What these numbers measure — honestly</span></strong>
+      <ul>
+        <li><span class="ko">측정 대상은 계층 3(fable-skills) 단독 효과입니다. Opable 전체 하네스(계층 1 루프 + 계층 2 규율 포함)의 종단 벤치마크는 아직 없습니다 — 계층 1·2의 근거는 구조적(재도출·레지스터·반증 강제)이며, 측정치가 아닙니다.</span>
+        <span class="en">These measure Layer 3 (the fable-skills) in isolation. There is no end-to-end benchmark of the full Opable harness (Layers 1–2 included) yet — the case for those layers is structural (enforced re-derivation, registers, self-attack), not measured.</span></li>
+        <li><span class="ko">셀당 5회(보안 리뷰는 1회)의 방향성 신호이지 통계적 증명이 아닙니다. 채점은 고정 정답지를 적용한 LLM 블라인드 채점입니다.</span>
+        <span class="en">n=5 per cell (n=1 for the security review) — a directional signal, not statistical proof. Grading is an LLM applying a fixed answer key, blind.</span></li>
+        <li><span class="ko">기준선이 이미 강해서 이득은 "고장 → 수리"가 아니라 "좋음 → 거의 완결"입니다. 엣지 과제는 포화에 가까워 신호가 압축됩니다.</span>
+        <span class="en">Baselines are already strong, so the gain is "good → near-complete," not "broken → fixed." The edge task nearly saturates, compressing its signal.</span></li>
+        <li><span class="ko">출처: <a href="https://github.com/adamentwistle/fable-skills">adamentwistle/fable-skills</a> 벤치마크 (MIT · Opable에 원문 무수정 벤더링).</span>
+        <span class="en">Source: the <a href="https://github.com/adamentwistle/fable-skills">adamentwistle/fable-skills</a> benchmarks (MIT · vendored unmodified into Opable).</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-kicker"><span class="ko">경계</span><span class="en">Boundaries</span></div>
+    <h2><span class="ko">하지 않는 것</span><span class="en">What it does not do</span></h2>
+    <ul class="plain">
+      <li><span class="ko">천장을 올리지 않습니다 — raw 추론력이 병목인 최난도 문제에선 Fable과의 격차가 거의 좁혀지지 않습니다.</span>
+      <span class="en">It doesn't raise the ceiling — on the hardest problems, where raw reasoning is the bottleneck, the gap to Fable barely closes.</span></li>
+      <li><span class="ko">Fable의 가중치 우위나 게이트된 능력은 어떤 설정으로도 복제되지 않습니다.</span>
+      <span class="en">Fable's weight advantage and gated capabilities are not replicated under any configuration.</span></li>
+      <li><span class="ko">다른 모델인 척하거나 안전장치를 우회하지 않습니다.</span>
+      <span class="en">It doesn't impersonate another model or bypass safeguards.</span></li>
+      <li><span class="ko">출력 스타일을 바꾸지 않습니다 — 단계 라벨·체크리스트·강제 템플릿이 답에 나타나지 않습니다. 관측 가능한 차이는 품질뿐입니다.</span>
+      <span class="en">It doesn't change the output style — no stage labels, checklists, or forced templates appear in the answer. The only observable difference is quality.</span></li>
+    </ul>
+  </section>
+
+  <section id="adopt">
+    <div class="sec-kicker"><span class="ko">도입</span><span class="en">Adopt</span></div>
+    <h2><span class="ko">3가지 배포면</span><span class="en">Three deployment surfaces</span></h2>
+    <div class="adopt">
+      <div class="card">
+        <h3>claude.ai Project</h3>
+        <p><span class="ko"><code>CLAUDE.md</code>를 Project 지침에 붙이고, 나머지 팩 파일을 Project 지식에 업로드합니다.</span>
+        <span class="en">Paste <code>CLAUDE.md</code> into the Project instructions; upload the remaining pack files to the Project knowledge.</span></p>
+      </div>
+      <div class="card">
+        <h3>Claude Code</h3>
+        <p><span class="ko">팩 내용물을 레포 루트에 복사해 <code>CLAUDE.md</code>가 루트에 오게 합니다. (선택) <code>skills/</code> → <code>.claude/skills/</code>.</span>
+        <span class="en">Copy a pack's contents to your repo root so <code>CLAUDE.md</code> sits at the root. Optionally copy <code>skills/</code> into <code>.claude/skills/</code>.</span></p>
+      </div>
+      <div class="card">
+        <h3>API</h3>
+        <p><span class="ko"><code>CLAUDE.md</code>(필요하면 <code>OPERATING_MANUAL.md</code>까지)를 system 프롬프트에 넣습니다.</span>
+        <span class="en">Put <code>CLAUDE.md</code> (and <code>OPERATING_MANUAL.md</code> if needed) into the system prompt.</span></p>
+      </div>
+    </div>
+    <pre style="margin-top:16px"><code>git clone https://github.com/JTech-CO/Opable.git
+cd Opable</code></pre>
+  </section>
+
+  <footer>
+    <span>Opable · MIT · <span class="ko">구 Opus 4.8 Plus</span><span class="en">formerly Opus 4.8 Plus</span></span>
+    <span><a href="https://github.com/JTech-CO/Opable">JTech-CO/Opable</a> · <a href="https://github.com/adamentwistle/fable-skills">fable-skills</a> (MIT)</span>
+  </footer>
+</main>
+
+<div class="tip" id="tip" role="status" aria-hidden="true"></div>
+
+<script>
+(function(){
+  "use strict";
+  /* ---- data: fable-skills README benchmarks (blind-graded; see Evidence notes) ---- */
+  var AREAS = [
+    {ko:"근본 원인 디버깅", en:"Root-cause debugging", max:8},
+    {ko:"동시성",           en:"Concurrency",          max:7},
+    {ko:"엣지 · 수치",      en:"Edge / numerical",     max:9}
+  ];
+  var OPUS_BARE   = [{raw:5.2,pct:65},{raw:6.4,pct:91},{raw:8.2,pct:91}];
+  var OPUS_SKILL  = [{raw:7.8,pct:98},{raw:7.0,pct:100},{raw:9.0,pct:100}];
+  var SONNET_SKILL= [{raw:6.4,pct:80},{raw:7.0,pct:100},{raw:9.0,pct:100}];
+  var SEC = {total:14, without:10, with_:13};
+  var VAR = {without:{lo:5,hi:6,mean:5.2}, with_:{lo:7,hi:8,mean:7.8}, max:8};
+
+  var lang = "ko";
+  var tip = document.getElementById("tip");
+  var NS = "http://www.w3.org/2000/svg";
+  function el(n,a){var e=document.createElementNS(NS,n);for(var k in a)e.setAttribute(k,a[k]);return e;}
+  function txt(n,s){n.textContent=s;return n;}
+  function showTip(html,x,y){tip.innerHTML=html;tip.style.display="block";
+    var r=tip.getBoundingClientRect();
+    tip.style.left=Math.min(x+14,window.innerWidth-r.width-8)+"px";
+    tip.style.top=Math.max(8,y-r.height-10)+"px";}
+  function hideTip(){tip.style.display="none";}
+
+  /* grouped bar chart: series = [{key,color,label,vals:[{raw,pct}]}] */
+  function barChart(mount, series, opts){
+    var W=720,H=308,L=42,R=10,T=28,B=40,plotW=W-L-R,plotH=H-T-B,base=T+plotH;
+    var svg=el("svg",{viewBox:"0 0 "+W+" "+H,role:"img","aria-label":opts.aria});
+    [0,25,50,75,100].forEach(function(v){
+      var y=base-plotH*v/100;
+      svg.appendChild(el("line",{x1:L,x2:W-R,y1:y,y2:y,stroke:v===0?"var(--axis)":"var(--grid)","stroke-width":1}));
+      var t=txt(el("text",{x:L-8,y:y+4,"text-anchor":"end",fill:"var(--muted)","font-size":11}),v);
+      svg.appendChild(t);
+    });
+    var groups=AREAS.length, slot=plotW/groups, bw=56, gap=2, n=series.length;
+    var pairW=n*bw+(n-1)*gap;
+    AREAS.forEach(function(a,gi){
+      var cx=L+slot*gi+slot/2;
+      var gl=txt(el("text",{x:cx,y:base+22,"text-anchor":"middle",fill:"var(--ink-2)","font-size":13}),a[lang]+" (/"+a.max+")");
+      svg.appendChild(gl);
+      series.forEach(function(s,si){
+        var v=s.vals[gi], x=cx-pairW/2+si*(bw+gap), h=plotH*v.pct/100, y=base-h;
+        var d="M"+x+","+base+" L"+x+","+(y+4)+" Q"+x+","+y+" "+(x+4)+","+y+
+              " L"+(x+bw-4)+","+y+" Q"+(x+bw)+","+y+" "+(x+bw)+","+(y+4)+" L"+(x+bw)+","+base+" Z";
+        var bar=el("path",{d:d,fill:s.color,"class":"bar"});
+        svg.appendChild(bar);
+        var lb=txt(el("text",{x:x+bw/2,y:y-7,"text-anchor":"middle",fill:"var(--ink)","font-size":12.5,
+          "font-weight":600,style:"font-variant-numeric:tabular-nums"}),v.pct+"%");
+        svg.appendChild(lb);
+        var hit=el("rect",{x:x-3,y:T,width:bw+6,height:plotH,"class":"bar-hit"});
+        hit.addEventListener("mousemove",function(ev){
+          svg.classList.add("dim");bar.classList.add("hot");
+          showTip("<b>"+s.label[lang]+"</b><br>"+a[lang]+" · <b>"+v.raw.toFixed(1)+"</b>/"+a.max+" ("+v.pct+"%)",ev.clientX,ev.clientY);
+        });
+        hit.addEventListener("mouseleave",function(){svg.classList.remove("dim");bar.classList.remove("hot");hideTip();});
+        svg.appendChild(hit);
+      });
+    });
+    mount.replaceChildren(svg);
+  }
+
+  /* security dots: two rows of 14 */
+  function secChart(mount){
+    var W=720,H=150,L=170,T=26,r=8,gap=10,rowGap=56;
+    var svg=el("svg",{viewBox:"0 0 "+W+" "+H,role:"img","aria-label":"Security review: 10 of 14 without skills, 13 of 14 with skills"});
+    var rows=[
+      {label:{ko:"스킬 없이",en:"Bare"},found:SEC.without,color:"var(--c-bare)"},
+      {label:{ko:"스킬과 함께",en:"With skills"},found:SEC.with_,color:"var(--c-skill)"}
+    ];
+    rows.forEach(function(row,ri){
+      var y=T+ri*rowGap;
+      svg.appendChild(txt(el("text",{x:L-14,y:y+5,"text-anchor":"end",fill:"var(--ink-2)","font-size":13}),row.label[lang]));
+      for(var i=0;i<SEC.total;i++){
+        var cx=L+i*(r*2+gap)+r, found=i<row.found;
+        var c=el("circle",{cx:cx,cy:y,r:r,fill:found?row.color:"none",stroke:found?"none":"var(--axis)","stroke-width":1.5});
+        (function(found){
+          c.addEventListener("mousemove",function(ev){
+            showTip(found?(lang==="ko"?"발견":"Found"):(lang==="ko"?"누락":"Missed"),ev.clientX,ev.clientY);});
+          c.addEventListener("mouseleave",hideTip);
+        })(found);
+        svg.appendChild(c);
+      }
+      svg.appendChild(txt(el("text",{x:L+SEC.total*(r*2+gap)+6,y:y+5,fill:"var(--ink)","font-size":13.5,
+        "font-weight":600,style:"font-variant-numeric:tabular-nums"}),row.found+" / "+SEC.total));
+    });
+    mount.replaceChildren(svg);
+  }
+
+  /* variance bands: range + mean, y 0..8 */
+  function varChart(mount){
+    var W=720,H=240,L=42,R=10,T=16,B=36,plotW=W-L-R,plotH=H-T-B,base=T+plotH,max=VAR.max;
+    var svg=el("svg",{viewBox:"0 0 "+W+" "+H,role:"img","aria-label":"Debugging score range over 5 runs: 5 to 6 bare, 7 to 8 with skills"});
+    [0,2,4,6,8].forEach(function(v){
+      var y=base-plotH*v/max;
+      svg.appendChild(el("line",{x1:L,x2:W-R,y1:y,y2:y,stroke:v===0?"var(--axis)":"var(--grid)","stroke-width":1}));
+      svg.appendChild(txt(el("text",{x:L-8,y:y+4,"text-anchor":"end",fill:"var(--muted)","font-size":11}),v));
+    });
+    var cols=[
+      {label:{ko:"스킬 없이",en:"Bare"},d:VAR.without,color:"var(--c-bare)"},
+      {label:{ko:"스킬과 함께",en:"With skills"},d:VAR.with_,color:"var(--c-skill)"}
+    ];
+    var slot=plotW/cols.length,bw=48;
+    cols.forEach(function(c,i){
+      var cx=L+slot*i+slot/2, yHi=base-plotH*c.d.hi/max, yLo=base-plotH*c.d.lo/max, yM=base-plotH*c.d.mean/max;
+      var band=el("rect",{x:cx-bw/2,y:yHi,width:bw,height:yLo-yHi,rx:4,fill:c.color,opacity:.45});
+      svg.appendChild(band);
+      svg.appendChild(el("line",{x1:cx-bw/2,x2:cx+bw/2,y1:yM,y2:yM,stroke:c.color,"stroke-width":2.5}));
+      svg.appendChild(txt(el("text",{x:cx+bw/2+8,y:yM+4,fill:"var(--ink)","font-size":12.5,"font-weight":600,
+        style:"font-variant-numeric:tabular-nums"}),(lang==="ko"?"평균 ":"mean ")+c.d.mean.toFixed(1)));
+      svg.appendChild(txt(el("text",{x:cx,y:base+22,"text-anchor":"middle",fill:"var(--ink-2)","font-size":13}),c.label[lang]));
+      var hit=el("rect",{x:cx-slot/2+8,y:T,width:slot-16,height:plotH,"class":"bar-hit"});
+      hit.addEventListener("mousemove",function(ev){
+        showTip("<b>"+c.label[lang]+"</b><br>"+(lang==="ko"?"범위":"range")+" <b>"+c.d.lo+"–"+c.d.hi+"</b> / 8 · "+(lang==="ko"?"평균":"mean")+" <b>"+c.d.mean.toFixed(1)+"</b>",ev.clientX,ev.clientY);});
+      hit.addEventListener("mouseleave",hideTip);
+      svg.appendChild(hit);
+    });
+    mount.replaceChildren(svg);
+  }
+
+  /* conceptual ceiling diagram (illustrative) */
+  function conceptChart(mount){
+    var W=720,H=290,base=250,colW=120;
+    var svg=el("svg",{viewBox:"0 0 "+W+" "+H,role:"img","aria-label":"Conceptual: Opable raises elicitation within Opus 4.8's ceiling; Fable 5's ceiling is higher"});
+    var cols=[
+      {x:110,cap:190,fill:104,label:{ko:"Opus 4.8 단독",en:"Opus 4.8 bare"},color:"var(--c-bare)"},
+      {x:310,cap:190,fill:163,label:{ko:"Opus 4.8 + Opable",en:"Opus 4.8 + Opable"},color:"var(--c-skill)"},
+      {x:510,cap:218,fill:198,label:{ko:"Fable 5",en:"Fable 5"},color:"var(--axis)"}
+    ];
+    svg.appendChild(el("line",{x1:40,x2:W-40,y1:base,y2:base,stroke:"var(--axis)","stroke-width":1}));
+    cols.forEach(function(c){
+      var top=base-c.cap;
+      svg.appendChild(el("line",{x1:c.x-14,x2:c.x+colW+14,y1:top,y2:top,stroke:"var(--muted)","stroke-width":1.5,"stroke-dasharray":"5 4"}));
+      svg.appendChild(el("rect",{x:c.x,y:top,width:colW,height:c.cap,fill:"none",stroke:"var(--grid)","stroke-width":1,rx:4}));
+      var fy=base-c.fill;
+      svg.appendChild(el("path",{d:"M"+c.x+","+base+" L"+c.x+","+(fy+4)+" Q"+c.x+","+fy+" "+(c.x+4)+","+fy+
+        " L"+(c.x+colW-4)+","+fy+" Q"+(c.x+colW)+","+fy+" "+(c.x+colW)+","+(fy+4)+" L"+(c.x+colW)+","+base+" Z",
+        fill:c.color,opacity:.85}));
+      svg.appendChild(txt(el("text",{x:c.x+colW/2,y:base+22,"text-anchor":"middle",fill:"var(--ink-2)","font-size":13}),c.label[lang]));
+    });
+    svg.appendChild(txt(el("text",{x:110-14,y:base-190-8,fill:"var(--muted)","font-size":11.5}),
+      lang==="ko"?"천장 (가중치가 결정)":"ceiling (set by weights)"));
+    svg.appendChild(txt(el("text",{x:510-14,y:base-218-8,fill:"var(--muted)","font-size":11.5}),
+      lang==="ko"?"더 높은 천장 + 게이트된 능력":"higher ceiling + gated capabilities"));
+    mount.replaceChildren(svg);
+  }
+
+  function renderAll(){
+    barChart(document.getElementById("fig-opus"),
+      [{label:{ko:"스킬 없이",en:"Bare"},color:"var(--c-bare)",vals:OPUS_BARE},
+       {label:{ko:"스킬과 함께",en:"With skills"},color:"var(--c-skill)",vals:OPUS_SKILL}],
+      {aria:"Opus 4.8 bare vs with skills, percent of seeded issues found in three areas"});
+    barChart(document.getElementById("fig-parity"),
+      [{label:{ko:"Opus 4.8, 스킬 없이",en:"Opus 4.8, bare"},color:"var(--c-opus)",vals:OPUS_BARE},
+       {label:{ko:"Sonnet 5 + 스킬",en:"Sonnet 5 + skills"},color:"var(--c-sonnet)",vals:SONNET_SKILL}],
+      {aria:"Sonnet 5 with skills matches or beats bare Opus 4.8 in all three areas"});
+    secChart(document.getElementById("fig-sec"));
+    varChart(document.getElementById("fig-var"));
+    conceptChart(document.getElementById("fig-concept"));
+  }
+
+  function setLang(l){
+    lang=l;
+    document.body.className=l;
+    document.documentElement.lang = l==="ko" ? "ko" : "en";
+    document.getElementById("btn-ko").setAttribute("aria-pressed",l==="ko");
+    document.getElementById("btn-en").setAttribute("aria-pressed",l==="en");
+    try{localStorage.setItem("opable-lang",l);}catch(e){}
+    renderAll();
+  }
+  document.getElementById("btn-ko").addEventListener("click",function(){setLang("ko");});
+  document.getElementById("btn-en").addEventListener("click",function(){setLang("en");});
+
+  var saved=null;
+  try{saved=localStorage.getItem("opable-lang");}catch(e){}
+  setLang(saved==="en"||saved==="ko" ? saved : (navigator.language||"").toLowerCase().indexOf("ko")===0 ? "ko" : "en");
+})();
+</script>
+</body>
+</html>
