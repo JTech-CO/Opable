@@ -1,54 +1,64 @@
-# Opus 4.8 Plus
+# Opable
 
-[English](https://github.com/JTech-CO/Opus-4.8-Plus/blob/main/README-EN.md)
+> **A response-elicitation harness that pulls Claude Opus 4.8's answers as close to Fable 5 as possible — by transplanting Fable's working method, not by changing the model.**
 
-Claude Opus 4.8을 위한 **응답 발현 하네스(Response Elicitation Harness)**. Opus 4.8의 답변을 **Fable 5에 최대한 가깝도록** 끌어올리는 운영 규율 묶음이다. 모델 자체나 출력 스타일을 바꾸지 않고, 답 뒤의 추론을 Opus의 능력 천장까지 찍어 줌으로써 그렇게 한다.
+[English](README.md) · [한국어](README-KR.md)
 
-> 이 문서는 Opus 4.8 Plus가 **무엇이고 왜 만들었는지**를 설명한다. 각 구성 요소(파일별 역할·사용법)는 `EN/README.md`·`KR/README.md`와 개별 MD 문서에 들어 있다.
+## 1. Introduction
 
-## 무엇인가
-Opus 4.8 Plus는 시스템 프롬프트 / Project 지침 / Claude Code 계약으로 로드해 쓰는 다중 폴더형 하네스다. Schema-Hub 빌드 하네스의 골격(에이전트 계약·불변식·게이트·STOP·결정 기록)을 그대로 가져오되, 대상을 "프로젝트를 어떻게 만드나"에서 **"한 응답을 어떻게 생각해 내나"**로 바꿨다.
+Opable (formerly *Opus 4.8 Plus*) is an instruction harness for Claude Opus 4.8. It strengthens only the reasoning behind the answer — the output style stays native, and the only observable difference is quality. It cannot raise the model's capability ceiling; it maximizes how much of that ceiling is actually drawn out (elicitation).
 
-목표는 분명하다: **Opus 4.8의 답을 Fable 5의 답에 최대한 가깝게 만드는 것.** 단 모델을 바꾸거나 흉내 내서가 아니라, Opus가 가진 능력 천장을 끝까지 끌어내서다. 그래서 핵심 약속은 하나로 정리된다 — **추론만 강화하고, 출력의 모양은 네이티브 Opus 4.8 그대로 둔다.** 사용자가 보는 것은 평소와 같은 Claude의 답이며, 달라지는 것은 오직 그 답의 품질이다.
+**Key features**
+- **Layer 1 — Reasoning loop**: six internal stages per response (frame → decompose → reason → draft → ground → check), all hidden from the output (`phases/`, `EFFORT.md`).
+- **Layer 2 — Response discipline**: the Operating Manual — a codification of the leaked Fable 5's observed way of answering — plus 10 invariants and a six-point pre-send check (`OPERATING_MANUAL.md`, `INVARIANTS.md`, `gates/`).
+- **Layer 3 — Situational skills**: the 35 fable-skills (per-task-type senior working habits) that fire only when the task type matches (`skills/`, indexed in `SKILLS.md`).
+- **Native output**: no stage labels, no checklists, no forced templates — the user sees a better answer, not a different format.
 
-## 무슨 역할을 하는가 — 천장과 발현
-이 하네스를 이해하려면 두 가지를 구분해야 한다.
-- 천장(ceiling): 가중치·학습·규모로 정해진 모델 능력의 한계. 프롬프트로는 못 올린다.
-- 발현(elicitation): 그 천장 중 실제로 끌려 나오는 양. 추론 구조와 깊이에 따라 크게 달라진다.
+## 2. Tech Stack
 
-Opus 4.8 Plus는 천장을 건드리지 않는다. 대신 발현을 극대화해, Opus 4.8의 답변이 Fable 5에 최대한 가까워지도록 천장을 끝까지 찍어 준다. 분해·심층 추론·자기검증·근거 그라운딩을 내부에서 강제해, Opus가 자기 천장에 최대한 가까운 답을 일관되게 내게 만든다. 발현이 병목이던 지식·분석·코딩 과제에서 Fable급에 근접한 품질이 나온다.
+- **Target model**: Claude Opus 4.8
+- **Format**: plain Markdown instruction packs — `KR/` and `EN/` (23 files each, identical content) + shared `skills/`
+- **Deployment**: claude.ai Project / Claude Code / API system prompt
+- **Sources**: the original harness skeleton + the Operating Manual + [fable-skills](https://github.com/adamentwistle/fable-skills) (MIT)
 
-여기서 "최대한 가깝게"는 어디까지나 Opus의 천장 안에서다. Fable의 가중치 우위나 게이트된 능력(사이버·생물 등 Opus 천장에 없는 것)을 복제하는 게 아니라, Opus가 낼 수 있는 최선의 답을 Fable 수준에 닿는 데까지 끌어내는 것이다.
+## 3. Quick Start
 
-## 왜 만들었는가
-출발점은 한 가지 질문이었다. "유출된 Fable 5 시스템 프롬프트로 Opus 4.8을 파인튜닝하면 Fable처럼 만들 수 있나?" 답은 아니오였다. 시스템 프롬프트는 능력이 아니라 지시문이고, Fable과 Opus의 격차는 프롬프트가 아니라 가중치에 있으며, 닫힌 Opus는 셀프 파인튜닝 경로도 없고, 디스틸레이션은 학생 모델의 천장을 넘지 못한다.
+**Requirements**: access to Claude Opus 4.8 (claude.ai, Claude Code, or the API)
 
-그러나 그다음 관찰이 핵심이었다. 잘 짜인 시스템 프롬프트가 모델의 체감 답변 품질을 실제로 끌어올린다는 것 — 같은 모델인데 더 깊고, 더 정확하고, 더 검증된 답을 내도록. 이건 천장 상승이 아니라 발현의 증가다. 프롬프트는 천장을 못 올리지만, 천장까지 닿게 하는 사다리는 된다.
+1. **Install**
+   ```bash
+   git clone https://github.com/JTech-CO/Opus-4.8-Plus.git
+   cd Opus-4.8-Plus
+   ```
 
-Opus 4.8 Plus는 이 결론의 정직한 적용이다. "Opus를 Fable로 둔갑시키는" 물건이 아니라 "Opus를 자기 천장까지 끌어올려 Fable에 최대한 가까운 답을 내게 하는" 도구다. 그래서 "Fable처럼"은 답의 엄밀성·깊이를 뜻하지, 모델 정체성을 위조하거나 게이트된 능력을 여는 것이 아니다.
+2. **Adopt** (pick your deployment)
+   - **claude.ai Project**: paste `EN/CLAUDE.md` (or `KR/CLAUDE.md`) into the Project instructions, and upload the remaining pack files to the Project knowledge.
+   - **Claude Code**: copy one pack's contents to your repo root so `CLAUDE.md` sits at the root. Optionally copy `skills/` into `.claude/skills/` to enable the Skill tool.
+   - **API**: put `CLAUDE.md` (and `OPERATING_MANUAL.md` if needed) into the system prompt.
 
-## 어떻게 작동하는가
-발현 레버는 넷이고, 전부 내부 사고 단계에서만 작동한다.
-1. 구조적 추론 — 과제를 분해하고 1차 원리로 따진다.
-2. test-time compute — 어려울수록 추론을 더 깊게 한다.
-3. 자기검증·믿음 수정 — 약점을 스스로 찾고 틀린 가설을 폐기한다.
-4. 근거 그라운딩 — 주장을 출처·계산에 붙인다.
+3. **Tune**
+   Add project-specific invariants to `INVARIANTS.md`; check the default reasoning depth in `EFFORT.md`.
 
-여기서 정확도를 실제로 떠받치는 것은 (4)이다. (3) 자기검증은 모델이 탐지 가능한 오류만 잡으므로, 통과를 옳음의 보증으로 쓰지 않고 외부 근거를 진짜 앵커로 둔다(자세한 결정은 `decisions/0001`). 그리고 이 네 단계는 출력 표면에 드러나지 않는다 — 단계 라벨·체크리스트·강제 템플릿 없이, 결과인 답 한 편만 네이티브 스타일로 낸다(`decisions/0002`).
+## 4. Structure
 
-## 하지 않는 것
-- 천장을 올리지 않는다. raw 추론력 자체가 병목인 최난도 문제에선 Fable과의 차이가 거의 안 좁혀진다.
-- Fable의 가중치 우위나 게이트된 능력(사이버·생물 등 Opus 천장에 없는 것)을 복제하지 않는다 — 어떤 설정으로도 안 나온다.
-- 다른 모델인 척하거나 안전장치를 우회하지 않는다.
-- 출력 스타일·말투를 바꾸지 않는다. 강제 섹션·체크리스트 같은 폼 템플릿을 답에 씌우지 않는다.
+```text
+Opus-4.8-Plus/
+├── KR/                      # Korean pack (23 files)
+│   ├── CLAUDE.md            # Auto-loaded contract (binds the three layers)
+│   ├── OPERATING_MANUAL.md  # Canonical response discipline (Layer 2)
+│   ├── HARNESS.md / INVARIANTS.md / SKILLS.md / EFFORT.md / RUNBOOK.md …
+│   ├── phases/              # The six internal reasoning stages (Layer 1)
+│   ├── gates/               # Pre-send check criteria
+│   └── decisions/           # Architecture Decision Records (ADR)
+├── EN/                      # English pack (identical layout)
+├── skills/                  # 35 vendored fable-skills (Layer 3, MIT)
+└── Operating Manual.md      # Preserved pre-merge original
+```
 
-## Schema-Hub 하네스와의 관계
-빌드 하네스가 "에러 없이 도는데 기능은 안 됨"을 측정 가능한 게이트로 막듯, 이 팩은 "그럴듯한데 사실은 틀림"을 발신 전 내부 점검으로 막는다. 같은 철학(자기보고에 기대지 않는 검증, 불변식, STOP)을 다중 세션 빌드가 아니라 한 응답에 적용한 것이다. 그래서 파일 구성도 빌드 팩과 평행하다 — `CLAUDE.md`(계약)·`HARNESS.md`(매뉴얼)·`INVARIANTS.md`(불변식)·`gates`·`phases`·`decisions`·`RUNBOOK`.
+Full background (ceiling vs. elicitation, design decisions) lives in each pack's `README.md` and `decisions/`.
 
-## 구성
-- `EN/`, `KR/`: 동일 내용의 영문·국문 팩(각 19파일). 한쪽을 고치면 같은 INV·ADR 번호로 반대쪽도 동기화한다.
-- 각 폴더의 `README.md`: 파일 지도와 도입 방법(구성 요소 설명).
-- 도입: claude.ai Project면 `CLAUDE.md`를 지침에 붙이고, Claude Code면 폴더째 루트에 둔다.
+## 5. Info
 
-## 한 줄
-Opus 4.8의 답을 Fable 5에 최대한 가깝게 — 천장을 끝까지 끌어내되, 출력은 네이티브 그대로. 사용자는 더 좋은 답을 볼 뿐, 다른 포맷을 보지 않는다.
+- **License**: MIT
+- **Attribution**: [fable-skills](https://github.com/adamentwistle/fable-skills) (MIT, vendored unmodified); the Operating Manual is based on a codification of the leaked Fable 5's way of answering
+- **Contact**: [JTech-CO](https://github.com/JTech-CO) — issues and PRs welcome

@@ -1,8 +1,8 @@
-# Opus 4.8 Plus — 응답 발현 하네스 (Response Elicitation Harness)
+# Opable — 응답 발현 하네스 (Response Elicitation Harness)
 
-**버전**: 0.2
+**버전**: 1.0
 **대상 모델**: Claude Opus 4.8 (claude.ai Project / Claude Code / API 시스템 프롬프트)
-**관계 문서**: `CLAUDE.md`(자동 로드 계약), `HARNESS.md`(마스터 매뉴얼), `INVARIANTS.md`(불변식)
+**관계 문서**: `CLAUDE.md`(자동 로드 계약), `HARNESS.md`(마스터 매뉴얼), `INVARIANTS.md`(불변식), `OPERATING_MANUAL.md`(응답 규율 정본)
 
 > Schema-Hub 빌드 하네스의 다중 파일·관심사 분리 골격을 응답 품질용으로 옮긴 것. 단, 이 팩은 **출력의 모양을 바꾸지 않는다.** 추론을 더 깊고 엄밀하게 만들 뿐이다.
 
@@ -13,16 +13,20 @@
 - **출력 표면에 절차를 드러내지 않는다.** 단계 라벨("문제 해석:", "초안:"), ✔/✘ 체크리스트, 강제 섹션 템플릿, "이제 자기검증하겠습니다" 식 메타 서술 — 전부 쓰지 않는다. 이건 폼 템플릿식 스캐폴딩이며, 이 팩의 목적이 아니다.
 - 분해·검증·믿음 수정은 모두 **내부(사고 단계)에서** 일어난다. 사용자가 보는 건 그 결과인 한 편의 자연스러운 답뿐이다.
 - 관측 가능한 유일한 차이는 **품질**이어야 한다: 더 깊은 추론, 더 적은 오류, 더 잘 그라운딩된 주장, 더 정직한 불확실성.
+- 응답 규율의 정본은 `OPERATING_MANUAL.md`(유출된 Fable 5 답변 방식의 명문화)이며, 루프·게이트는 그 절차를 단계에 배치한 것이다.
 
 ## 발현(elicitation)이지 천장(ceiling) 상승이 아니다
 가중치·학습으로 정해진 능력 한계(천장)는 프롬프트로 못 올린다. 이 팩은 그 천장 중 실제로 끌려 나오는 양(발현)을 키운다. "Fable처럼"은 답의 엄밀성·깊이를 뜻하지 모델 정체성 위조나 안전장치 우회가 아니며(INV-4·INV-5), Fable의 게이트된 능력(사이버·생물 등 Opus 천장에 없는 것)은 어떤 설정으로도 안 나온다.
 
 ## 파일 지도
+파일은 세 계층으로 조직된다: **계층 1 추론 루프**(`phases/`·`EFFORT.md`·`THREAD.md`), **계층 2 응답 규율**(`OPERATING_MANUAL.md`·`INVARIANTS.md`·`gates/`), **계층 3 상황별 스킬**(`SKILLS.md`·`../skills/`). `CLAUDE.md`는 세 계층을 묶는 자동 로드 계약이다.
+
 | 파일 | 역할 | 변경 빈도 |
 |---|---|---|
 | `CLAUDE.md` | 자동 로드 계약: 가치 우선순위·출력 스타일·정체성·내부 추론 루프·레드라인 | 드묾 |
 | `HARNESS.md` | 마스터 매뉴얼: 내부 추론 루프·발신 전 점검(내부)·검증 우선순위·STOP | 드묾 |
 | `INVARIANTS.md` | 불변식(INV-n). 1건 위반 시 발신 금지 | 드묾 |
+| `OPERATING_MANUAL.md` | 응답 규율 정본: 요청 읽기·재도출·레지스터·자기 반박·구성 | 드묾 |
 | `gates/DOD_GUIDE.md` | 발신 전 내부 점검 기준 + 답변 유형별 강조점 | 드묾 |
 | `phases/_TEMPLATE.md` | 내부 추론 단계 카드 템플릿 | 고정 |
 | `phases/S*.md` | 내부 추론 단계(프레이밍→분해→추론→초안→그라운딩→점검). 전부 비노출 | 드묾 |
@@ -31,11 +35,15 @@
 | `EFFORT.md` | 과제별 추론 깊이(test-time compute) 배분 정책 | 가끔 |
 | `GLOSSARY.md` | 용어집 | 가끔 |
 | `THREAD.md` | (멀티턴 리서치용) 내부 작업 메모: 주장·출처·미결·폐기 가설 | 스레드 중 |
+| `SKILLS.md` | 상황별 스킬 색인: 적용면·발동 규칙 | 스킬 추가 시 |
+| `../skills/` | fable-skills 35종 벤더링(영문, 양 팩 공유) | 업스트림 갱신 시 |
 
 ## 한 줄 요약
-네이티브 Opus 4.8/Fable 5의 답을 그대로 두되, 그 답 뒤의 사고를 천장까지 끌어올린다. 사용자는 더 좋은 답을 볼 뿐, 다른 포맷을 보지 않는다.
+네이티브 Opus 4.8/Fable 5의 답을 그대로 두되, 그 답 뒤의 사고를 Fable의 작업 방식(규율·스킬)으로 천장까지 끌어올린다. 사용자는 더 좋은 답을 볼 뿐, 다른 포맷을 보지 않는다.
 
 ## 도입 방법
-1. claude.ai Project면 `CLAUDE.md` 내용을 Project 지침에 붙인다. Claude Code면 폴더를 레포 루트(또는 `harness/`)에 두면 `CLAUDE.md`가 자동 로드된다.
-2. 프로젝트 고유 불변식이 있으면 `INVARIANTS.md`에 추가.
-3. `EFFORT.md`에서 기본 추론 깊이를 확인/조정.
+1. **claude.ai Project**: `CLAUDE.md` 내용을 Project 지침에 붙이고, 나머지 팩 파일(`OPERATING_MANUAL.md`·`HARNESS.md`·`INVARIANTS.md`·`SKILLS.md`·`phases/` 등)을 Project 지식에 업로드한다 — 계약이 상시 참조하는 문서들이다. `CLAUDE.md`만 붙이는 축소 모드도 동작하지만, 규율 상세·스킬 색인 참조는 빠진다.
+2. **Claude Code**: 이 팩의 내용물을 레포 루트에 복사해 `CLAUDE.md`가 루트에 오게 한다 — 세션 시작 시 자동 로드되는 것은 루트의 `CLAUDE.md`뿐이다(하위 폴더의 것은 그 폴더를 만질 때만 조건부로 읽힌다). (선택) 루트 `skills/`를 `.claude/skills/`로 복사하면 Skill 도구로도 발동할 수 있다.
+3. **API**: `CLAUDE.md`(필요하면 `OPERATING_MANUAL.md`까지)를 system 프롬프트에 넣는다.
+4. 프로젝트 고유 불변식이 있으면 `INVARIANTS.md`에 추가.
+5. `EFFORT.md`에서 기본 추론 깊이를 확인/조정.
