@@ -42,7 +42,7 @@ Opable(구 *Opus 4.8 Plus*)은 Claude Opus 4.8용 지침 하네스입니다. 답
 ## 4. 폴더 구조 (Structure)
 
 ```text
-Opus-4.8-Plus/
+Opable/
 ├── KR/                      # 국문 팩 (23파일)
 │   ├── CLAUDE.md            # 자동 로드 계약 (세 계층을 묶음)
 │   ├── OPERATING_MANUAL.md  # 응답 규율 정본 (계층 2)

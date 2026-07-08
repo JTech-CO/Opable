@@ -42,7 +42,7 @@ Opable (formerly *Opus 4.8 Plus*) is an instruction harness for Claude Opus 4.8.
 ## 4. Structure
 
 ```text
-Opus-4.8-Plus/
+Opable/
 ├── KR/                      # Korean pack (23 files)
 │   ├── CLAUDE.md            # Auto-loaded contract (binds the three layers)
 │   ├── OPERATING_MANUAL.md  # Canonical response discipline (Layer 2)
